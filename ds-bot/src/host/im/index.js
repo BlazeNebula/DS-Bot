@@ -356,6 +356,12 @@ export function install(rt) {
       await sendText(conn, msg.chat, text(msg.chat.kind === 'group' ? 'unboundGroup' : 'unbound'))
       return
     }
+    // The receipt is a typing state, not a message: raise it as soon as the
+    // message lands, before the turn starts, and let the interval keep it lit.
+    const typing = runners.get(conn.id)?.handle?.typing
+    if (typeof typing === 'function') {
+      void Promise.resolve(typing({ key: msg.chat.key, kind: msg.chat.kind, title: msg.chat.title })).catch(() => {})
+    }
     const sessionId = target.botId ?? target.roomId
     const content = []
     if (body !== '') content.push({ type: 'text', text: body })
