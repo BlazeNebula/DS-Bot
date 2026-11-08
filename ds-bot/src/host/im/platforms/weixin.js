@@ -158,6 +158,15 @@ export default {
       }
     }
 
+    // WeChat holds the typing state until it is replaced or withdrawn: raise it
+    // when a message lands, withdraw it once the reply is out.
+    const typingStatus = async (chat, status) => {
+      const answer = await request(env, base(env, fields), fields.token, 'getconfig', { ilink_user_id: chat.key }, 8_000).catch(() => undefined)
+      const ticket = String(answer?.typing_ticket ?? '')
+      if (ticket === '') return
+      await request(env, base(env, fields), fields.token, 'sendtyping', { ilink_user_id: chat.key, typing_ticket: ticket, status }, 8_000).catch(() => {})
+    }
+
     handlers.onStatus({ state: 'connecting' })
     void poll()
 
@@ -181,14 +190,10 @@ export default {
           }
           messageId = clientId
         }
+        void typingStatus(chat, 2)
         return { messageId }
       },
-      typing: async (chat) => {
-        const answer = await request(env, base(env, fields), fields.token, 'getconfig', { ilink_user_id: chat.key }, 8_000).catch(() => undefined)
-        const ticket = String(answer?.typing_ticket ?? '')
-        if (ticket === '') return
-        await request(env, base(env, fields), fields.token, 'sendtyping', { ilink_user_id: chat.key, typing_ticket: ticket, status: 1 }, 8_000).catch(() => {})
-      },
+      typing: async (chat) => typingStatus(chat, 1),
       stop: () => {
         stopped = true
         generation += 1
